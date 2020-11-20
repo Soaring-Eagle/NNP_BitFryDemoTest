@@ -1,0 +1,16 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{A09CA9EF-DE4C-E330-87AC-BA8439E191D6}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "NNP_BitFryTestDemo",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		}
+	]
+}
