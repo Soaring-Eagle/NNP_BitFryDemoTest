@@ -32,6 +32,7 @@ public:
 
 	void HandleButtons(NNPButtons button, bool pressed);
 	void DoNothing();
+	void UpdateHaptics();
 	
 protected:
 

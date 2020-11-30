@@ -10,6 +10,8 @@
 #include "GameFramework/SpringArmComponent.h"
 
 #define CAMERA_MOVE_SCALE 2.5f
+#define MIN_HAPTICS_DIST_SQ 10000.0f //100^2
+#define MAX_HAPTICS_DIST_SQ 100000000.0f // 10,000^2
 
 void HandleButtonCallbacks(NNPButtons button, void *object, bool pressed)
 {
@@ -127,6 +129,29 @@ void ANNP_BitFryTestDemoCharacter::DoNothing()
 	
 }
 
+void ANNP_BitFryTestDemoCharacter::UpdateHaptics()
+{
+	float intensity = 0.3f;
+	float sharpness = 0.5f;
+	FVector origin = FVector(0.0f, 0.0f, 0.0f);
+	FVector worldPosition = GetActorLocation();
+	
+	float distSq = FVector::DistSquared2D(origin, worldPosition);
+	
+	intensity = 1.0f - MIN(1.0f, (distSq - MIN_HAPTICS_DIST_SQ) / MAX_HAPTICS_DIST_SQ);
+/*
+	if(GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Pos: (%f, %f)"), worldPosition.X, worldPosition.Y));
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("DistSq: %f"), distSq));
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("intensity: %f"), intensity));
+	}
+*/
+	
+	//if(NNPController)
+	//	NNPController->UpdateHaptics(intensity, sharpness);
+}
+
 void ANNP_BitFryTestDemoCharacter::OnResetVR()
 {
 	// If NNP_BitFryTestDemo is added to a project via 'Add Feature' in the Unreal Editor the dependency on HeadMountedDisplay in NNP_BitFryTestDemo.Build.cs is not automatically propagated
@@ -193,6 +218,7 @@ void ANNP_BitFryTestDemoCharacter::MoveForward(float Value)
 		// Get the forward vector.
 		FVector direction = FRotationMatrix(yawRotation).GetUnitAxis(EAxis::X);
 		AddMovementInput(direction, value);
+		
 	}
 	else if ((Controller != nullptr) && (Value != 0.0f))
 	{
@@ -207,6 +233,8 @@ void ANNP_BitFryTestDemoCharacter::MoveForward(float Value)
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		AddMovementInput(Direction, Value);
 	}
+	
+	UpdateHaptics();
 }
 
 void ANNP_BitFryTestDemoCharacter::MoveRight(float Value)
@@ -239,4 +267,6 @@ void ANNP_BitFryTestDemoCharacter::MoveRight(float Value)
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
 	}
+	
+	UpdateHaptics();
 }

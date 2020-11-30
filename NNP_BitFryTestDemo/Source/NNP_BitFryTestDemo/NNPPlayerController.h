@@ -93,9 +93,14 @@ public:
 	// Get the current value of the requested button.
 	float GetButton(NNPButtons button);
 	
+	// Update Haptics
+	void UpdateHaptics(float intensity, float sharpness);
+	
 protected:
 	GCController *Controller;
 	CHHapticEngine *Haptics;
+	NSTimer *HapticsTimer;
+	id HapticsPlayer;
 	
 	bool InitComplete;
 	
@@ -108,6 +113,6 @@ protected:
 	FVector2D LThumbstick;
 	FRotator ControllerOrientation;
 	
-	void InitializeHaptics();
+	void InitializeHaptics() API_AVAILABLE(ios(14));
 	
 };

@@ -8,7 +8,7 @@
 
 #define TOUCH_STICK_RADIUS 100.0f
 
-ANNPPlayerController::ANNPPlayerController() : Controller(nullptr), Haptics(nullptr), InitComplete(false)
+ANNPPlayerController::ANNPPlayerController() : Controller(nullptr), Haptics(nullptr), HapticsTimer(nullptr), InitComplete(false)
 {
 	
 }
@@ -43,6 +43,10 @@ bool ANNPPlayerController::InitializeHardwareController(FRotator orientation)
 		ToggleHardwareController(true);
 		InitComplete = true;
 		return true;
+	}
+	else
+	{
+		InitializeHaptics();
 	}
 	
 	return false;
@@ -165,7 +169,7 @@ void ANNPPlayerController::ToggleHardwareController(bool useHardware)
 	}
 	
 	// We have a controller so setup the haptics.
-	//InitializeHaptics();
+	InitializeHaptics();
 }
 
 // Get the current orientation of the controller.
@@ -291,22 +295,91 @@ float ANNPPlayerController::GetButton(NNPButtons button)
 	return Buttons[button];
 }
 
+// Update Haptics
+void ANNPPlayerController::UpdateHaptics(float intensity, float sharpness)
+{
+	NSError *error = nil;
+	
+	CHHapticEventParameter *intensityParam = [[CHHapticEventParameter alloc] initWithParameterID:CHHapticEventParameterIDHapticIntensity value:intensity];
+	CHHapticEventParameter *sharpnessParam = [[CHHapticEventParameter alloc] initWithParameterID:CHHapticEventParameterIDHapticSharpness value:sharpness];
+	NSArray *parameters = [NSArray arrayWithObjects:intensityParam, sharpnessParam, nil];
+	[HapticsPlayer sendParameters:parameters atTime:0.0 error:&error];
+	if(error != nil)
+	{
+		if(GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Haptics player failed to update parameters. Error: %s"), error.localizedDescription));
+	}
+}
+
 void ANNPPlayerController::InitializeHaptics()
 {
+	NSError *error = nil;
+
+	if(Haptics != nil)
+		return;
+	
+	//if(GEngine)
+	//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Haptics Initializing..."));
+
+// NNP: I would have liked to get this working for the controller, but on Mac OS it only works on
+// Mac OS 11 or later, and I couldn't figure out how to get the Unreal Project to compile for mac OS 11. -_-
+/*
+	Haptics = [Controller.haptics createEngineWithLocality:GCHapticsLocalityDefault];
+	if(Haptics == nil)
+	{
+		if(GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Haptics engine not found."));
+		return;
+	}
+	else if(GEngine)
+		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Haptics engine found."));
+*/
+
 	// Get a pointer the the haptics engine.
-	Haptics = [CHHapticEngine init];
-	[Haptics startAndReturnError:nil];
+	Haptics = [[CHHapticEngine alloc] initAndReturnError:&error];
+	if(error != nil)
+	{
+		if(GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Haptics engine failed to initialize. Error: %s"), error.localizedDescription));
+	}
+	
+	if(![Haptics startAndReturnError:&error])
+	{
+		if(GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Haptics engine failed to start. Error: %s"), error.localizedDescription));
+	}
 	
 	// Setup Haptics pattern.
-	CHHapticEventParameter *intensity = [[CHHapticEventParameter alloc] initWithParameterID:CHHapticEventParameterIDHapticIntensity value:0.3f];
+	CHHapticEventParameter *intensity = [[CHHapticEventParameter alloc] initWithParameterID:CHHapticEventParameterIDHapticIntensity value:1.0f];
 	CHHapticEventParameter *sharpness = [[CHHapticEventParameter alloc] initWithParameterID:CHHapticEventParameterIDHapticSharpness value:0.5f];
 	NSArray *parameters = [NSArray arrayWithObjects:intensity, sharpness, nil];
 	
 	CHHapticEvent *hapticEvent = [[CHHapticEvent alloc] initWithEventType:CHHapticEventTypeHapticContinuous parameters:parameters relativeTime:0.0 duration:5.0];
 	CHHapticPattern *continuousPattern = [[CHHapticPattern alloc] initWithEvents:[NSArray arrayWithObject:hapticEvent] parameters:[NSArray array] error:nil];
 	
-	id hapticPlayer = [Haptics createAdvancedPlayerWithPattern:continuousPattern error:nil];
-	[hapticPlayer setCompletionHandler: ^(NSError *_Nullable error){
+	HapticsPlayer = [Haptics createAdvancedPlayerWithPattern:continuousPattern error:&error];
+	if(error != nil)
+	{
+		if(GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Advanced player failed to be created. Error: %s"), error.localizedDescription));
+	}
+	[HapticsPlayer setCompletionHandler: ^(NSError *_Nullable returnError){
 		// NNP TODO: handle upon completion...
+		if(GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Haptics Ended."));
+		
+		HapticsTimer = [NSTimer scheduledTimerWithTimeInterval:1.0f repeats:false block:^(NSTimer *timer){
+			[HapticsPlayer startAtTime:CHHapticTimeImmediate error:nil];
+			
+			if(GEngine)
+				GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Haptics Restarted."));
+		}];
 	}];
+	
+	[HapticsPlayer startAtTime:CHHapticTimeImmediate error: &error];
+	if(error != nil)
+	{
+		if(GEngine)
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Advanced player failed to start. Error: %s"), error.localizedDescription));
+	}
 }
